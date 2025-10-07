@@ -1,4 +1,4 @@
-import { UserPrefs } from "./types.js";
+import { UserPrefs } from "../../common/types.js";
 
 export function buildPrompt(weatherBrief: string, prefs: UserPrefs) {
   return `

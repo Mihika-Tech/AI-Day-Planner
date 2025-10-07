@@ -7,7 +7,7 @@ import { z } from "zod";
 import { getWeather } from "./weather";
 import { geocodeCity } from "./geocode";
 import { generatePlan } from "./llm";
-import { UserPrefs } from "./types";
+import { UserPrefs } from "../../common/types";
 import { error } from "console";
 
 dotenv.config();
@@ -40,8 +40,9 @@ app.get("/api/geocode", async (req, res) => {
 app.post("/api/generate", async (req, res) => {
     try {
         const { lat, lon, prefs } = WeatherBody.parse(req.body);
-        const { weatherBrief } = await getWeather(lat, lon);
+        const { weatherBrief, localDate } = await getWeather(lat, lon);
         const plan = await generatePlan(weatherBrief, prefs || {});
+        plan.date = localDate;
         res.json(plan);
     } catch (e: any) {
         console.error(e);
@@ -49,8 +50,6 @@ app.post("/api/generate", async (req, res) => {
     } 
 });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const clientDist = path.join(__dirname, "../client_dist");
 
 if (process.env.NODE_ENV === "production") {

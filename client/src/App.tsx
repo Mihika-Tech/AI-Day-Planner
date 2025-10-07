@@ -1,90 +1,69 @@
 import { useState } from "react";
-
-type Plan = {
-  date: string;
-  weatherBrief: string;
-  outfit?: { title: string; items: string[]; tips?: string };
-  activities?: { title: string; when?: string; details?: string }[];
-  meal?: { title: string; recipeHint?: string };
-  playlistMood?: string;
-  safetyNotes?: string[];
-};
+import CitySearch from "./components/CitySearch";
+import PrefsForm from "./components/PrefsForm";
+import PlanView from "./components/PlanView";
+import { generatePlan } from "./api";
+import type { LocationChoice, Plan, UserPrefs } from "./../../common/types";
 
 export default function App() {
+  const [location, setLocation] = useState<LocationChoice | null>(null);
+  const [prefs, setPrefs] = useState<UserPrefs>({ likes: ["coffee", "long walks"], diet: "veg", style: "casual", budget: "medium" });
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  const prefs = {
-    likes: ["coffee", "long walks"],
-    diet: "veg",
-    style: "casual",
-    budget: "medium"
-  };
-
-  const getPlan = () => {
-    navigator.geolocation.getCurrentPosition(async pos => {
+  const generate = async () => {
+    if (!location) {
+      setErr("Pick a location first.");
+      return;
+    }
+    try {
       setLoading(true);
-      const resp = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude, prefs })
-      });
-      const data = await resp.json();
-      setPlan(data);
+      setErr(null);
+      const p = await generatePlan(location.lat, location.lon, prefs);
+      setPlan(p);
+    } catch (e) {
+      if (e instanceof Error) {
+    setErr(e.message || "Failed to generate");
+  } else {
+    setErr("Failed to generate");
+  }
+    } finally {
       setLoading(false);
-    });
+    }
   };
 
   return (
-    <main style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
-      <h1>AI Weather Generator</h1>
-      <button onClick={getPlan} disabled={loading}>
-        {loading ? "Loading..." : "Generate Plan"}
-      </button>
+    <main className="container">
+      <header>
+        <h1>AI Weather + Preferences Generator ✨</h1>
+        <p className="muted">Outfit • Activities • Meal • Playlist — cute plans for today’s weather</p>
+      </header>
 
-      {plan && (
-        <div style={{ marginTop: 20 }}>
-          <h2>{plan.date}</h2>
-          <p>{plan.weatherBrief}</p>
+      <CitySearch onSelect={(loc) => { setLocation(loc); setPlan(null); }} />
 
-          {plan.outfit && (
-            <Card title={`Outfit — ${plan.outfit.title}`}>
-              <ul>{plan.outfit.items.map((i, idx) => <li key={idx}>{i}</li>)}</ul>
-              {plan.outfit.tips && <em>{plan.outfit.tips}</em>}
-            </Card>
-          )}
-
-          {plan.activities && (
-            <Card title="Activities">
-              <ul>
-                {plan.activities.map((a, i) => (
-                  <li key={i}>
-                    <strong>{a.title}</strong> {a.when && `— ${a.when}`} {a.details && `: ${a.details}`}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
-          {plan.meal && (
-            <Card title={`Meal — ${plan.meal.title}`}>
-              {plan.meal.recipeHint && <p>{plan.meal.recipeHint}</p>}
-            </Card>
-          )}
-
-          {plan.playlistMood && <Card title="Playlist">{plan.playlistMood}</Card>}
-          {plan.safetyNotes && <Card title="Notes"><ul>{plan.safetyNotes.map((n,i)=><li key={i}>{n}</li>)}</ul></Card>}
+      {location && (
+        <div className="card">
+          <span className="selected-pill">
+            <strong>Selected:</strong> {location.label}
+          </span>
+          <span className="muted"> ({location.lat.toFixed(4)}, {location.lon.toFixed(4)})</span>
         </div>
       )}
-    </main>
-  );
-}
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ border: "1px solid #444", borderRadius: 8, padding: 12, marginTop: 12 }}>
-      <h3>{title}</h3>
-      {children}
-    </div>
+
+
+
+      <PrefsForm value={prefs} onChange={setPrefs} />
+
+      <div className="row">
+        <button onClick={generate} disabled={loading || !location}>
+          {loading ? "Generating…" : "Generate plan"}
+        </button>
+        {err && <span className="error">{err}</span>}
+      </div>
+
+      {plan && <PlanView plan={plan} />}
+    </main>
   );
 }

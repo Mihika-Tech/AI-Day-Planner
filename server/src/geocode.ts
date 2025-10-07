@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+// No import of node-fetch needed
 
 export async function geocodeCity(q: string) {
   // Nominatim (no key). For demo/light usage only.
